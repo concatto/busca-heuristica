@@ -1,0 +1,3 @@
+
+C:\Users\rudsonm\busca-heuristica\MultipleKnapsack>g++ main.cpp -o MultipleKnapsack -g -std=c++11   && MultipleKnapsack.exe
+Deseja finalizar o arquivo em lotes (S/N)? 
