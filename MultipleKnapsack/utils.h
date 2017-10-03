@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include <functional>
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -45,6 +46,13 @@ std::vector<T> fatiarString(const std::string& s, std::function<T(const std::str
 	} while (inicio != -1);
 
 	return resultado;
+}
+
+template <class Container>
+std::vector<typename Container::value_type> embaralhar(const Container& container) {
+	std::vector<typename Container::value_type> vec(container.begin(), container.end());
+	std::random_shuffle(vec.begin(), vec.end());
+	return vec;
 }
 
 std::vector<float> obterValoresArquivo(std::ifstream &entrada) {
