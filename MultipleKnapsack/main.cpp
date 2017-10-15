@@ -21,6 +21,7 @@ class HeuristicaMochilas {
 	Instancia inst;
 	std::unordered_set<int> itensDisponiveis;
 	std::unordered_set<int> itensPresentes;
+    std::unordered_set<int> estouradas;
 	std::vector<float> pesosAtuais;
 
 public:
@@ -51,7 +52,7 @@ public:
 	float obterBonificacoes(const Solucao &sol, int item, int partida = 0) {
 		float bonificacao = 0;
 		for (int i = partida; i < sol.size(); i++) {
-			if(sol[i] >= 0)
+			if (sol[i] >= 0)
 				bonificacao += inst.bonificacoes[item][i];
 		}
 		return bonificacao;
@@ -62,7 +63,6 @@ public:
 		return (std::rand() / static_cast<float>(RAND_MAX)) < prob;
 	}
 
-	// Criar uma classe
 	float tentarAdicionar(const Solucao& solucao, int& itemAdicionado, int& mochilaDestino) {
 		for (int item : itensDisponiveis) {
 			for (int mochila = 0; mochila < inst.capacidades.size(); mochila++) {
@@ -138,12 +138,13 @@ public:
 	
 		return false;
 	}
-
-	float aplicarBusca(Solucao& solucao) {
-		float qualidade = 0;
-		bool admissivel = true;
+	
+	float analisarSolucao(const Solucao &solucao) {
+        float qualidade = 0;
 		pesosAtuais = std::vector<float>(inst.capacidades.size(), 0);
 		itensDisponiveis.clear();
+        itensPresentes.clear();
+        estouradas.clear();
 		
 		for (int i = 0; i < solucao.size(); i++) {
 			int mochila = solucao[i];
@@ -155,16 +156,24 @@ public:
 				pesosAtuais[mochila] += inst.itens[i].peso;
 
 				// Verificação de admissibilidade
-				if (pesosAtuais[mochila] > inst.capacidades[mochila] && admissivel) {
-					admissivel = false;
+				if (pesosAtuais[mochila] > inst.capacidades[mochila]) {
+					estouradas.insert(mochila);
 				}
 			
-				// Cálculo das bonificações
+				// Cálculo das bonificações. Evita verificação repetida e.g. (2, 4) e (4, 2)
 				qualidade += obterBonificacoes(solucao, i, i+1);
 			} else {
 				itensDisponiveis.insert(i);
 			}
 		}
+		
+		return qualidade;
+    }
+        
+
+	float aplicarBusca(Solucao& solucao) {
+		float qualidade = analisarSolucao(solucao);
+        bool admissivel = estouradas.empty();
 
 		while (!admissivel) {
 			// Seleciona mochila estourada
@@ -230,37 +239,14 @@ public:
 	}
 
 	float tempera(Solucao &solucao, float temperaturaInicial, float alpha) {
-		float qualidade = 0;
-		pesosAtuais = std::vector<float>(inst.capacidades.size(), 0);
-		itensDisponiveis.clear();
-		std::unordered_set<int> estouradas;
-		for (int i = 0; i < solucao.size(); i++) {
-			int mochila = solucao[i];
-			if (mochila >= 0) {
-				itensPresentes.insert(i);
-
-				// Incremento na qualidade e nas capacidades
-				qualidade += inst.itens[i].valor;
-				pesosAtuais[mochila] += inst.itens[i].peso;
-
-				// Verificação de admissibilidade
-				if (pesosAtuais[mochila] > inst.capacidades[mochila]) {
-					estouradas.insert(mochila);
-				}
-			
-				// Cálculo das bonificações
-				qualidade += obterBonificacoes(solucao, i, i+1);
-			} else {
-				itensDisponiveis.insert(i);
-			}
-		}
+		float qualidade = analisarSolucao(solucao);
 	
 		float temperatura = temperaturaInicial;
 		while (temperatura >= 1) {
 			// Se a solução é inadmissível
 			if (!estouradas.empty()) {
 				std::cout << "inadmissivel\n";
-				// Remover um item aleatoriamente
+				// Remover um item presente aleatoriamente
 				int indiceSorteado = std::rand() % itensPresentes.size();
 				auto it = itensPresentes.begin();
 				std::advance(it, indiceSorteado);
@@ -289,7 +275,7 @@ public:
 				int item = *it;
 		
 				// Selecionar uma mochila aleatória para inserir o item
-				int mochila = std::rand() % pesosAtuais.size();
+				int mochila = std::rand() % inst.capacidades.size();
 		
 				std::cout << "Tentando adicionar " << item << " na mochila " << mochila << "\n";
 				// Se não vai estourar
@@ -313,7 +299,7 @@ public:
 				} else {
 					std::cout << "Rejeitado porque estourou.\n";
 				}
-			}	
+			}
 			temperatura *= alpha;
 		}
 		return qualidade;
