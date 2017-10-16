@@ -3,11 +3,14 @@
 #include <unordered_set>
 #include <functional>
 #include <algorithm>
+#include <utility>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <sstream>
 #include <iterator>
+#include <cmath>
+#include <queue>
 #include "utils.h"
 
 struct Mochila {
@@ -115,7 +118,7 @@ public:
 					//imprimirSequencia(sol);
 					int peso = pesosAtuais[mochila] + inst.itens[itemAdicionado].peso;
 					melhora = valorAdicionado - valorRemovido;
-					std::cout << "Melhora = " << melhora << "\n";
+					//std::cout << "Melhora = " << melhora << "\n";
 					if (melhora > 0 && peso <= inst.capacidades[mochila]) {
 						pesosAtuais[mochila] = peso;
 						pesosAtuais[mochilaEsvaziada] -= inst.itens[itemRemovido].peso;
@@ -125,7 +128,7 @@ public:
 
 						return true;
 					} else {
-						std::cout << "Novo peso da mochila " << mochila << ": " << peso << " de " << inst.capacidades[mochila] << "\n";
+						//std::cout << "Novo peso da mochila " << mochila << ": " << peso << " de " << inst.capacidades[mochila] << "\n";
 					}
 
 					sol[itemAdicionado] = -1;
@@ -229,7 +232,7 @@ public:
 				qualidade += melhora;
 				pesosAtuais[mochilaDestino] += inst.itens[itemAdicionado].peso;
 				//imprimirSequencia(solucao);
-				std::cout << "Pesos atuais" << std::endl;
+				//std::cout << "Pesos atuais" << std::endl;
 				//imprimirSequencia(pesosAtuais);
 				std::cout << "Qualidade : " << qualidade << std::endl;
 				std::cout << std::endl;
@@ -304,17 +307,90 @@ public:
 		}
 		return qualidade;
 	}
+	
+	std::pair<Solucao, float> gulosoAlpha(float alpha) {
+        Solucao sol(inst.itens.size(), -1);
+        
+        pesosAtuais = std::vector<float>(inst.capacidades.size(), 0);
+        itensDisponiveis.clear();
+        
+        for (int i = 0; i < sol.size(); i++) {
+            itensDisponiveis.insert(i);
+        }
+        
+        struct Candidato {
+            int item;
+            int mochila;
+            float qualidade;
+            
+            Candidato(int item, int mochila, float qualidade) : item(item), mochila(mochila), qualidade(qualidade) {}
+            
+            bool operator<(const Candidato& outro) const {
+                return qualidade < outro.qualidade;
+            }
+        };
+        
+        float qualidade = 0;
+        
+        while (true) {
+            std::priority_queue<Candidato> candidatos;
+            
+            for (int item : itensDisponiveis) {
+                for (int mochila = 0; mochila < inst.capacidades.size(); mochila++) {
+                    float valor = inst.itens[item].valor + obterBonificacoes(sol, item, 0);
+                    float peso = inst.itens[item].peso;
+                    
+                    if (pesosAtuais[mochila] + peso < inst.capacidades[mochila]) {
+                        // Só é candidato se não torna inadmissível
+                        candidatos.emplace(item, mochila, valor);
+                    }
+                }   
+            }
+            
+            std::cout << "n = " << candidatos.size() << "\n";
+            
+            if (candidatos.empty()) {
+                break; // Não existem candidatos
+            }
+            
+            std::cout << "Maior qualidade: " << candidatos.top().qualidade << "\n";
+            
+            std::vector<Candidato> melhores;
+            for (int i = 0; i < std::ceil(candidatos.size() * alpha); i++) {
+                melhores.push_back(candidatos.top());
+                candidatos.pop();
+            }
+            
+            
+            int indice = std::rand() % melhores.size();
+            Candidato escolhido = melhores[indice];
+            
+            qualidade += adicionarItem(sol, escolhido.item, escolhido.mochila);
+        }
+        
+        return {sol, qualidade};
+    }
 };
 
 int main(int argc, char** argv) {
 	std::srand(std::time(nullptr));
 
-	Instancia inst("instances/mchls50_4_7.lia");
+	Instancia inst("instances/mchls1000_70_31.lia");
 	imprimirSequencia(inst.capacidades);
 	HeuristicaMochilas heuristicaMochilas(inst);
 	Solucao sol(inst.itens.size(), -1);
-	double qualidade = heuristicaMochilas.tempera(sol, 100, 0.99);
-	std::cout << "Qualidade obtida: " <<  qualidade << std::endl;
-	imprimirSequencia(sol);
+	//double qualidade = heuristicaMochilas.tempera(sol, 100, 0.99);
+    //double qualidade = heuristicaMochilas.aplicarBusca(sol);
+	//std::cout << "Qualidade obtida: " <<  qualidade << std::endl;
+	//imprimirSequencia(sol);
+    std::pair<Solucao, double> par = heuristicaMochilas.gulosoAlpha(0.2);
+    std::cout << "Qualidade por guloso: " << par.second << "\n";
+    imprimirSequencia(par.first);
+    //par.second = heuristicaMochilas.aplicarBusca(par.first);
+    //std::cout << "Pos local: " << par.second << "\n";
+    //imprimirSequencia(par.first);
 	return 0;
 }
+
+
+// Guloso 0.2: 62000
